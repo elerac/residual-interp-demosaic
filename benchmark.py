@@ -1,152 +1,99 @@
-import time
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
-from typing import Literal
 
 import cv2
 import numpy as np
-from colour_demosaicing import demosaicing_CFA_Bayer_Malvar2004, demosaicing_CFA_Bayer_Menon2007
 
-from tip_ri import demosaicing
+from demosaic import cpsnr, demosaic, psnr, ssim
 
-RESULTS_DIR = Path("results")
-
-
-def mosaicing_cfa_bayer(img_bgr: np.ndarray, pattern: Literal["RGGB", "BGGR", "GRBG", "GBRG"] | str = "RGGB") -> tuple[np.ndarray, np.ndarray]:
-    h, w = img_bgr.shape[:2]
-    dtype = img_bgr.dtype
-
-    # Construct masks for each color channel.
-    c2i = {c: i for i, c in enumerate("BGR")}
-    img_bgr_mask = np.zeros((h, w, 3), dtype=bool)
-    for c, (y, x) in zip(pattern, [(0, 0), (0, 1), (1, 0), (1, 1)]):
-        img_bgr_mask[y::2, x::2, c2i[c]] = True
-
-    # Create the Bayer CFA mosaic image (pseudo raw image).
-    img_cfa = np.zeros((h, w), dtype=dtype)
-    for c in range(3):
-        img_cfa[img_bgr_mask[..., c]] = img_bgr[..., c][img_bgr_mask[..., c]]
-
-    return img_cfa, img_bgr_mask
+TARGET_ALGORITHMS = ("RI", "MLRI2", "ARI", "ARI2")
+ALL_ALGORITHMS = ("RI", "MLRI", "MLRI2", "ARI", "ARI2")
+DATASETS = {
+    "IMAX": [Path("datasets/IMAX") / f"{i}.tif" for i in range(1, 19)],
+    "Kodak": [Path("datasets/Kodak") / f"img{i}.bmp" for i in range(1, 13)],
+}
 
 
-def _crop_and_zoom(img_bgr: np.ndarray, x0: int, y0: int, w: int, h: int, scale: int = 4) -> np.ndarray:
-    crop = img_bgr[y0 : y0 + h, x0 : x0 + w]
-    return cv2.resize(crop, (w * scale, h * scale), interpolation=cv2.INTER_NEAREST)
+def _code(algorithm: str, pattern: str = "GRBG") -> str:
+    return f"COLOR_Bayer{pattern.upper()}2BGR_{algorithm}"
 
 
-def _to_bgr_uint(img_rgb_or_bgr: np.ndarray, dtype: np.dtype) -> np.ndarray:
-    if np.issubdtype(dtype, np.integer):
-        vmax = np.iinfo(dtype).max
-        return np.clip(np.round(img_rgb_or_bgr * vmax), 0, vmax).astype(dtype)
-    return img_rgb_or_bgr.astype(dtype)
+def _evaluate_image(path: Path, algorithm: str) -> tuple[np.ndarray, float, np.ndarray]:
+    bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if bgr is None:
+        raise FileNotFoundError(path)
+    out_bgr = demosaic(bgr, _code(algorithm))
+    ref_rgb = bgr[:, :, ::-1].astype(np.float64)
+    out_rgb = out_bgr[:, :, ::-1]
+    return psnr(ref_rgb, out_rgb, peak=255, border=10), cpsnr(ref_rgb, out_rgb, peak=255, border=10), ssim(ref_rgb, out_rgb)
 
 
-def _cfa_to_bgr_colored(img_cfa: np.ndarray, img_bgr_mask: np.ndarray) -> np.ndarray:
-    img_cfa_bgr = np.zeros((*img_cfa.shape, 3), dtype=img_cfa.dtype)
-    for channel in range(3):
-        img_cfa_bgr[..., channel][img_bgr_mask[..., channel]] = img_cfa[img_bgr_mask[..., channel]]
-    return img_cfa_bgr
+def _dataset_paths(dataset: str, limit: int | None) -> list[Path]:
+    paths = DATASETS[dataset]
+    if limit is not None:
+        paths = paths[:limit]
+    return paths
+
+
+def run_dataset(dataset: str, algorithm: str, limit: int | None = None) -> tuple[np.ndarray, np.ndarray]:
+    psnr_rows: list[np.ndarray] = []
+    ssim_rows: list[np.ndarray] = []
+    for path in _dataset_paths(dataset, limit):
+        channel_psnr, combined, channel_ssim = _evaluate_image(path, algorithm)
+        psnr_rows.append(np.append(channel_psnr, combined))
+        ssim_rows.append(channel_ssim)
+        print(f"{algorithm} {dataset} {path.name}: PSNR/CPSNR {psnr_rows[-1]} SSIM {channel_ssim}", flush=True)
+    return np.vstack(psnr_rows), np.vstack(ssim_rows)
+
+
+def _format_row(name: str, imax: np.ndarray, kodak: np.ndarray, combined: np.ndarray, ssim_table: bool = False) -> str:
+    if ssim_table:
+        return f"| {name:<9} | {imax[0]:.4f} | {imax[1]:.4f} | {imax[2]:.4f} | {imax[3]:.4f} | " f"{kodak[0]:.4f} | {kodak[1]:.4f} | {kodak[2]:.4f} | {kodak[3]:.4f} | " f"{combined[0]:.4f} | {combined[1]:.4f} | {combined[2]:.4f} | {combined[3]:.4f} |"
+    return f"| {name:<9} | {imax[0]:.2f} | {imax[1]:.2f} | {imax[2]:.2f} | {imax[3]:.2f} | " f"{kodak[0]:.2f} | {kodak[1]:.2f} | {kodak[2]:.2f} | {kodak[3]:.2f} | " f"{combined[0]:.2f} | {combined[1]:.2f} | {combined[2]:.2f} | {combined[3]:.2f} |"
+
+
+def run_benchmark(limit: int | None = None, algorithms: tuple[str, ...] = TARGET_ALGORITHMS) -> None:
+    psnr_summary: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    ssim_summary: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    for algorithm in algorithms:
+        imax_psnr, imax_ssim = run_dataset("IMAX", algorithm, limit)
+        kodak_psnr, kodak_ssim = run_dataset("Kodak", algorithm, limit)
+        all_psnr = np.vstack([imax_psnr, kodak_psnr])
+        all_ssim = np.vstack([imax_ssim, kodak_ssim])
+        psnr_summary[algorithm] = (imax_psnr.mean(axis=0), kodak_psnr.mean(axis=0), all_psnr.mean(axis=0))
+        ssim_summary[algorithm] = (imax_ssim.mean(axis=0), kodak_ssim.mean(axis=0), all_ssim.mean(axis=0))
+
+    print("\nPSNR/CPSNR")
+    for algorithm, (imax, kodak, combined) in psnr_summary.items():
+        print(_format_row(algorithm, imax, kodak, combined))
+
+    print("\nSSIM")
+    for algorithm, (imax, kodak, combined) in ssim_summary.items():
+        print(_format_row(algorithm, imax, kodak, combined, ssim_table=True))
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--benchmark", action="store_true", help="run target IMAX/Kodak benchmark")
+    parser.add_argument("--dataset", choices=sorted(DATASETS), help="run one dataset")
+    parser.add_argument("--algorithm", choices=ALL_ALGORITHMS, default="RI")
+    parser.add_argument("--limit", type=int, default=None)
+    return parser.parse_args()
 
 
 def main() -> None:
-    RESULTS_DIR.mkdir(exist_ok=True)
-
-    filename = "tshirts.jpg"
-    pattern = "RGGB"
-    img_bgr = cv2.imread(filename, cv2.IMREAD_COLOR)
-    if img_bgr is None:
-        raise FileNotFoundError("Image file not found. Please check the path and filename.")
-
-    stem = Path(filename).stem
-    cv2.imwrite(RESULTS_DIR / f"{stem}_input.png", img_bgr, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-
-    img_cfa, img_bgr_mask = mosaicing_cfa_bayer(img_bgr, pattern=pattern)
-    cv2.imwrite(RESULTS_DIR / f"{stem}_cfa.png", img_cfa, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-    img_cfa_bgr = _cfa_to_bgr_colored(img_cfa, img_bgr_mask)
-    cv2.imwrite(RESULTS_DIR / f"{stem}_cfa_rgb.png", img_cfa_bgr, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-
-    h_img, w_img = img_bgr.shape[:2]
-    crop_w = crop_h = 100
-    crop_specs = {
-        "crop1": (530, 318),
-        "crop2": (382, 555),
-    }
-    crop_specs = {crop_name: (min(max(0, x0), w_img - crop_w), min(max(0, y0), h_img - crop_h)) for crop_name, (x0, y0) in crop_specs.items()}
-
-    for crop_name, (x0, y0) in crop_specs.items():
-        input_crop = _crop_and_zoom(img_bgr, x0, y0, crop_w, crop_h, scale=4)
-        cv2.imwrite(RESULTS_DIR / f"{stem}_input_{crop_name}.png", input_crop)
-        cfa_crop = _crop_and_zoom(img_cfa_bgr, x0, y0, crop_w, crop_h, scale=4)
-        cv2.imwrite(RESULTS_DIR / f"{stem}_cfa_rgb_{crop_name}.png", cfa_crop)
-
-    code = cv2.COLOR_BAYER_RGGB2BGR
-    code_ea = cv2.COLOR_BAYER_RGGB2BGR_EA
-
-    cfa_float = img_cfa.astype(np.float32)
-    if np.issubdtype(img_cfa.dtype, np.integer):
-        cfa_float /= float(np.iinfo(img_cfa.dtype).max)
-
-    methods = {
-        "tip_ri_mlri": lambda cfa: demosaicing(cfa, code),
-        "opencv_bilinear": lambda cfa: cv2.demosaicing(cfa, code),
-        "opencv_ea": lambda cfa: cv2.demosaicing(cfa, code_ea),
-        "colour_malvar2004": lambda _cfa: cv2.cvtColor(
-            _to_bgr_uint(demosaicing_CFA_Bayer_Malvar2004(cfa_float, pattern=pattern), img_bgr.dtype),
-            cv2.COLOR_RGB2BGR,
-        ),
-        "colour_menon2007": lambda _cfa: cv2.cvtColor(
-            _to_bgr_uint(demosaicing_CFA_Bayer_Menon2007(cfa_float, pattern=pattern), img_bgr.dtype),
-            cv2.COLOR_RGB2BGR,
-        ),
-    }
-
-    results: list[dict[str, float | str]] = []
-
-    # Number of runs for timing measurement
-    num_runs = 50
-
-    for method_name, fn in methods.items():
-        print(f"Processing {method_name}...")
-
-        # Run multiple times to collect timing data
-        times = []
-        for run in range(num_runs):
-            time_start = time.time()
-            img_bgr_demosaiced = fn(img_cfa)
-            elapsed = time.time() - time_start
-            times.append(elapsed)
-            print(f"  Run {run + 1}/{num_runs}: {elapsed:.4f} s")
-
-        mean_time = np.mean(times)
-        std_time = np.std(times)
-
-        filename_full = RESULTS_DIR / f"{stem}_demosaiced_{method_name}.png"
-        cv2.imwrite(filename_full, img_bgr_demosaiced, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-
-        for crop_name, (x0, y0) in crop_specs.items():
-            crop_zoom = _crop_and_zoom(img_bgr_demosaiced, x0, y0, crop_w, crop_h, scale=4)
-            filename_crop = RESULTS_DIR / f"{stem}_demosaiced_{method_name}_{crop_name}.png"
-            cv2.imwrite(filename_crop, crop_zoom, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-
-        psnr = cv2.PSNR(img_bgr, img_bgr_demosaiced)
-        results.append(
-            {
-                "method": method_name,
-                "psnr": psnr,
-                "time_mean": mean_time,
-                "time_std": std_time,
-                "full": filename_full,
-            }
-        )
-
-        print(f"{method_name:20s} | PSNR: {psnr:8.4f} dB | Time: {mean_time:7.4f}±{std_time:6.4f} s")
-
-    print("\nSummary:")
-    for result in sorted(results, key=lambda x: float(x["psnr"]), reverse=True):
-        print(f"- {result['method']:20s}: " f"PSNR={float(result['psnr']):8.4f} dB, " f"Time={float(result['time_mean']):7.4f}±{float(result['time_std']):6.4f} s")
-
-    return results
+    args = parse_args()
+    if args.benchmark:
+        run_benchmark(limit=args.limit)
+    elif args.dataset:
+        rows, ssim_rows = run_dataset(args.dataset, args.algorithm, args.limit)
+        print("PSNR/CPSNR mean:", rows.mean(axis=0))
+        print("SSIM mean:", ssim_rows.mean(axis=0))
+    else:
+        raise SystemExit("Use --benchmark or --dataset {IMAX,Kodak}.")
 
 
 if __name__ == "__main__":
-    results = main()
+    main()

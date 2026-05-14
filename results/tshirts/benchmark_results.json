@@ -1,0 +1,169 @@
+{
+  "input": "tshirts.jpg",
+  "image_shape": [
+    1000,
+    1500,
+    3
+  ],
+  "pattern": "RGGB",
+  "runs": 5,
+  "warmup_runs": 1,
+  "crop_size": 100,
+  "zoom": 4,
+  "crops": {
+    "crop1": [
+      530,
+      318
+    ],
+    "crop2": [
+      382,
+      555
+    ]
+  },
+  "results": [
+    {
+      "key": "ri",
+      "method": "RI",
+      "implementation": "This repository",
+      "cpsnr_db": 38.028638782204254,
+      "time_mean_s": 3.750702866818756,
+      "time_std_s": 0.008860334101971153,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_ri.png",
+      "ssim": {
+        "r": 0.9854077217611199,
+        "g": 0.9936873976039876,
+        "b": 0.9862710573698337,
+        "avg": 0.9884553922449805
+      }
+    },
+    {
+      "key": "mlri",
+      "method": "MLRI",
+      "implementation": "This repository",
+      "cpsnr_db": 38.03900391045589,
+      "time_mean_s": 7.765582883637398,
+      "time_std_s": 0.01843495299582736,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_mlri.png",
+      "ssim": {
+        "r": 0.9856693668263081,
+        "g": 0.9938654320423935,
+        "b": 0.986457973031961,
+        "avg": 0.9886642573002208
+      }
+    },
+    {
+      "key": "mlri2",
+      "method": "MLRI2",
+      "implementation": "This repository",
+      "cpsnr_db": 38.290767167191916,
+      "time_mean_s": 11.984008291736245,
+      "time_std_s": 0.0376013675553057,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_mlri2.png",
+      "ssim": {
+        "r": 0.9865550114943207,
+        "g": 0.9939517550367369,
+        "b": 0.9871528856729332,
+        "avg": 0.9892198840679969
+      }
+    },
+    {
+      "key": "ari",
+      "method": "ARI",
+      "implementation": "This repository",
+      "cpsnr_db": 38.88139371985575,
+      "time_mean_s": 87.44389729164541,
+      "time_std_s": 0.3120330690470211,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_ari.png",
+      "ssim": {
+        "r": 0.9874397036074154,
+        "g": 0.9945439232430312,
+        "b": 0.987506456848682,
+        "avg": 0.9898300278997096
+      }
+    },
+    {
+      "key": "ari2",
+      "method": "ARI2",
+      "implementation": "This repository",
+      "cpsnr_db": 38.85529621128039,
+      "time_mean_s": 103.65319535834715,
+      "time_std_s": 0.39588821973706323,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_ari2.png",
+      "ssim": {
+        "r": 0.9879134334381794,
+        "g": 0.9945439232430312,
+        "b": 0.9881582918613949,
+        "avg": 0.9902052161808684
+      }
+    },
+    {
+      "key": "opencv_bilinear",
+      "method": "Bilinear",
+      "implementation": "OpenCV",
+      "cpsnr_db": 30.569703201168235,
+      "time_mean_s": 0.000209108367562294,
+      "time_std_s": 7.97988243381727e-05,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_opencv_bilinear.png",
+      "ssim": {
+        "r": 0.9363117887542728,
+        "g": 0.9762291470944677,
+        "b": 0.9373385176696202,
+        "avg": 0.9499598178394536
+      }
+    },
+    {
+      "key": "opencv_ea",
+      "method": "Edge-Aware",
+      "implementation": "OpenCV",
+      "cpsnr_db": 30.773607979996683,
+      "time_mean_s": 0.00015304135158658027,
+      "time_std_s": 1.9452851548008352e-05,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_opencv_ea.png",
+      "ssim": {
+        "r": 0.9363117887542728,
+        "g": 0.9796641701869203,
+        "b": 0.9373385176696202,
+        "avg": 0.9511048255369378
+      }
+    },
+    {
+      "key": "colour_malvar2004",
+      "method": "Malvar2004",
+      "implementation": "colour_demosaicing",
+      "cpsnr_db": 34.53568311262097,
+      "time_mean_s": 0.07704472485929728,
+      "time_std_s": 0.0011803402518456574,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_colour_malvar2004.png",
+      "ssim": {
+        "r": 0.973393539596523,
+        "g": 0.9884763850881605,
+        "b": 0.9697184609423521,
+        "avg": 0.9771961285423453
+      }
+    },
+    {
+      "key": "colour_menon2007",
+      "method": "Menon2007",
+      "implementation": "colour_demosaicing",
+      "cpsnr_db": 35.692934073506976,
+      "time_mean_s": 0.22457400001585484,
+      "time_std_s": 0.0034152924486136305,
+      "runs": 5,
+      "output": "results/tshirts/tshirts_demosaiced_colour_menon2007.png",
+      "ssim": {
+        "r": 0.9784761664037295,
+        "g": 0.9904443411394886,
+        "b": 0.9762945803804978,
+        "avg": 0.9817383626412387
+      }
+    }
+  ]
+}

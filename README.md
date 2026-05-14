@@ -1,76 +1,98 @@
-# MLRI+wei demosaicing in Python
+# Residual Interpolation Demosaicing
 
-This repository provides an unofficial Python implementation of the **MLRI+wei demosaicing** method proposed by Kiku et al., "[Beyond Color Difference: Residual Interpolation for Color Image Demosaicking](http://www.ok.sc.e.titech.ac.jp/res/DM/TIP_RI.pdf)," in the IEEE TIP 2016. The authors provide only a MATLAB implementation, so I re-implement it in Python using NumPy and OpenCV.
+Python re-implementation of residual interpolation demosaicing algorithms from the Institute of Science Tokyo (formerly Tokyo Institute of Technology) project page, [Residual Interpolation for Color Image Demosaicking](http://www.ok.sc.e.titech.ac.jp/res/DM/RI.html).
+
+This repository provides a Python re-implementation only. It is not the original MATLAB release and is not an official distribution from the original authors. The upstream MATLAB code and publications were released by Yusuke Monno and Daisuke Kiku.
+
+The public `demosaic()` helper uses OpenCV-style code names and works with normal full-color OpenCV BGR images by generating a Bayer mosaic internally, then reconstructing the color image.
 
 ## Usage
 
 ```python
-from tip_ri import demosaicing
+import cv2
 
-img_bgr = demosaicing(img_raw, cv2.COLOR_BAYER_RGGB2BGR)
+from demosaic import demosaic
+
+image = cv2.imread("tshirts.jpg", cv2.IMREAD_COLOR)
+result = demosaic(image, "COLOR_BayerRGGB2BGR_ARI")
+cv2.imwrite("tshirts_ari.png", result.astype("uint8"))
 ```
 
-You can copy the `tip_ri.py` file into your project and import the demosaicing function. The interface is designed to be similar to OpenCV’s cv2.demosaicing.
+Codes use this form:
+
+```python
+COLOR_Bayer{PATTERN}2BGR_{ALGORITHM}
+```
+
+### Supported Algorithms
+
+| Method | Corresponding paper |
+| --- | --- |
+| `RI` | Kiku et al., **"Residual Interpolation for Color Image Demosaicking,"** IEEE ICIP 2013. |
+| `MLRI` | Kiku et al., **"Minimized-Laplacian Residual Interpolation for Color Image Demosaicking,"** IS&T/SPIE Electronic Imaging 2014. |
+| `MLRI2` | Kiku et al., **"Beyond Color Difference: Residual Interpolation for Color Image Demosaicking,"** IEEE Transactions on Image Processing 2016. |
+| `ARI` | Monno et al., **"Adaptive Residual Interpolation for Color Image Demosaicking,"** IEEE ICIP 2015. |
+| `ARI2` | Monno et al., **"Adaptive Residual Interpolation for Color and Multispectral Image Demosaicking,"** Sensors 2017. |
+
+### Supported Bayer Patterns
+
+| Pattern | CFA Layout |
+| --- | --- |
+| `RGGB` | R G<br>G B |
+| `GRBG` | G R<br>B G |
+| `GBRG` | G B<br>R G |
+| `BGGR` | B G<br>G R |
 
 ## Benchmark
 
-The evaluation was conducted on a 1500 × 1000 image with the RGGB Bayer pattern using the methods listed below. Experiments were performed on a MacBook Pro equipped with an M1 Max chip. PSNR was computed with respect to the original reference image, and runtime was averaged over 50 runs.
+The specialized benchmark compares all five algorithms in this repository with OpenCV bilinear/edge-aware demosaicing and `colour_demosaicing` Malvar2004/Menon2007. It creates one shared Bayer CFA from `tshirts.jpg`, runs every method against that same CFA.
 
-The benchmark compares the proposed MLRI+wei implementation against several widely used demosaicing baselines: Malvar (2004) and Menon (2007) from the colour-demosaicing library, as well as OpenCV’s built-in edge-aware and bilinear demosaicing methods.
+```bash
+python benchmark_tshirts.py --runs 5
+```
 
-### PSNR / Runtime Summary
+Benchmark image: `tshirts.jpg` (1500 x 1000), Bayer pattern `RGGB`, 5 timed runs after one warmup. CPSNR is computed against the original RGB image with `peak=255` and no border crop. SSIM Avg is the RGB-channel average from `demosaic.ssim`.
 
-| Method      | Implementation     | PSNR (dB) | Time (s) [mean ± std] |
-| ----------- | ------------------ | --------- | --------------------- |
-| MLRI+wei    | This repository    | **38.17** | 0.7629±0.0270         |
-| Menon2007   | colour_demosaicing |   35.69   | 0.3383±0.0077         |
-| Malvar2004  | colour_demosaicing |   34.54   | 0.1058±0.0061         |
-| Edge-Aware  | OpenCV             |   30.77   | 0.0004±0.0002         |
-| Bilinear    | OpenCV             |   30.57   | 0.0005±0.0006         |
+| Method | Implementation | CPSNR (dB) | SSIM Avg | Time (s) |
+| --- | --- | ---: | ---: | ---: |
+| ARI2 | This repository | *38.86* | **0.9902** | 103.6532 |
+| ARI | This repository | **38.88** | *0.9898* | 87.4439 |
+| MLRI2 | This repository | 38.29 | 0.9892 | 11.9840 |
+| MLRI | This repository | 38.04 | 0.9887 | 7.7656 |
+| RI | This repository | 38.03 | 0.9885 | 3.7507 |
+| Menon2007 | colour_demosaicing | 35.69 | 0.9817 | 0.2246 |
+| Malvar2004 | colour_demosaicing | 34.54 | 0.9772 | 0.0770 |
+| Edge-Aware | OpenCV | 30.77 | 0.9511 | 0.0002 |
+| Bilinear | OpenCV | 30.57 | 0.9500 | 0.0002 |
 
-### Input and CFA
+## Input and CFA
 
-| Input (BGR)         | Bayer CFA (RGB-colored) |
-| ------------------- | ----------------------- |
-| ![input][img_input] | ![cfa_rgb][img_cfa_rgb] |
+| Input | Bayer CFA (RGB-colored) |
+| --- | --- |
+| ![input](results/tshirts/tshirts_input.png) | ![cfa](results/tshirts/tshirts_cfa_rgb.png) |
 
-### CFA Cropped Images (4x nearest-neighbor zoom)
+## CFA Crops
 
-| Crop Region          | Original Input              | RGB-colored CFA              |
-| -------------------- | --------------------------- | ---------------------------- |
-| crop1                | ![input1][img_input_crop1]  | ![cfa_crop1][img_cfa_crop1]  |
-| crop2                | ![input2][img_input_crop2]  | ![cfa_crop2][img_cfa_crop2]  |
+4x nearest-neighbor zoom.
 
-### Demosaiced Cropped Images (4x nearest-neighbor zoom)
+| Crop Region | Original Input | RGB-colored CFA |
+| --- | --- | --- |
+| crop1 | ![input crop1](results/tshirts/tshirts_input_crop1.png) | ![cfa crop1](results/tshirts/tshirts_cfa_rgb_crop1.png) |
+| crop2 | ![input crop2](results/tshirts/tshirts_input_crop2.png) | ![cfa crop2](results/tshirts/tshirts_cfa_rgb_crop2.png) |
 
-<!-- markdownlint-disable MD060 -->
+## Demosaiced Crops
 
-| Method     | Crop1                  | Crop2                  |
-| :--------: | :--------------------: | :--------------------: |
-| Original   | ![o1][orig_crop1]      | ![o2][orig_crop2]      |
-| Bilinear   | ![obl][crop_opencv]    | ![obl2][crop_opencv2]  |
-| Edge-aware | ![ea][crop_opencv_ea]  | ![ea2][crop_opencv_ea2] |
-| Malvar2004 | ![cml][crop_cmalvar]   | ![cml2][crop_cmalvar2] |
-| Menon2007  | ![cmn][crop_cmenon]    | ![cmn2][crop_cmenon2]  |
-| MLRI+wei   | ![tip][crop_tip]       | ![tip2][crop_tip2]     |
+4x nearest-neighbor zoom.
 
-<!-- markdownlint-restore -->
-
-[img_input]: results/tshirts_input.png
-[img_cfa_rgb]: results/tshirts_cfa_rgb.png
-[img_input_crop1]: results/tshirts_input_crop1.png
-[img_input_crop2]: results/tshirts_input_crop2.png
-[img_cfa_crop1]: results/tshirts_cfa_rgb_crop1.png
-[img_cfa_crop2]: results/tshirts_cfa_rgb_crop2.png
-[orig_crop1]: results/tshirts_input_crop1.png
-[orig_crop2]: results/tshirts_input_crop2.png
-[crop_tip]: results/tshirts_demosaiced_tip_ri_mlri_crop1.png
-[crop_tip2]: results/tshirts_demosaiced_tip_ri_mlri_crop2.png
-[crop_opencv_ea]: results/tshirts_demosaiced_opencv_ea_crop1.png
-[crop_opencv_ea2]: results/tshirts_demosaiced_opencv_ea_crop2.png
-[crop_opencv]: results/tshirts_demosaiced_opencv_bilinear_crop1.png
-[crop_opencv2]: results/tshirts_demosaiced_opencv_bilinear_crop2.png
-[crop_cmalvar]: results/tshirts_demosaiced_colour_malvar2004_crop1.png
-[crop_cmalvar2]: results/tshirts_demosaiced_colour_malvar2004_crop2.png
-[crop_cmenon]: results/tshirts_demosaiced_colour_menon2007_crop1.png
-[crop_cmenon2]: results/tshirts_demosaiced_colour_menon2007_crop2.png
+| Method | Crop1 | Crop2 |
+| :---: | :---: | :---: |
+| Original | ![original crop1](results/tshirts/tshirts_input_crop1.png) | ![original crop2](results/tshirts/tshirts_input_crop2.png) |
+| RI | ![ri crop1](results/tshirts/tshirts_demosaiced_ri_crop1.png) | ![ri crop2](results/tshirts/tshirts_demosaiced_ri_crop2.png) |
+| MLRI | ![mlri crop1](results/tshirts/tshirts_demosaiced_mlri_crop1.png) | ![mlri crop2](results/tshirts/tshirts_demosaiced_mlri_crop2.png) |
+| MLRI2 | ![mlri2 crop1](results/tshirts/tshirts_demosaiced_mlri2_crop1.png) | ![mlri2 crop2](results/tshirts/tshirts_demosaiced_mlri2_crop2.png) |
+| ARI | ![ari crop1](results/tshirts/tshirts_demosaiced_ari_crop1.png) | ![ari crop2](results/tshirts/tshirts_demosaiced_ari_crop2.png) |
+| ARI2 | ![ari2 crop1](results/tshirts/tshirts_demosaiced_ari2_crop1.png) | ![ari2 crop2](results/tshirts/tshirts_demosaiced_ari2_crop2.png) |
+| Bilinear | ![opencv_bilinear crop1](results/tshirts/tshirts_demosaiced_opencv_bilinear_crop1.png) | ![opencv_bilinear crop2](results/tshirts/tshirts_demosaiced_opencv_bilinear_crop2.png) |
+| Edge-Aware | ![opencv_ea crop1](results/tshirts/tshirts_demosaiced_opencv_ea_crop1.png) | ![opencv_ea crop2](results/tshirts/tshirts_demosaiced_opencv_ea_crop2.png) |
+| Malvar2004 | ![colour_malvar2004 crop1](results/tshirts/tshirts_demosaiced_colour_malvar2004_crop1.png) | ![colour_malvar2004 crop2](results/tshirts/tshirts_demosaiced_colour_malvar2004_crop2.png) |
+| Menon2007 | ![colour_menon2007 crop1](results/tshirts/tshirts_demosaiced_colour_menon2007_crop1.png) | ![colour_menon2007 crop2](results/tshirts/tshirts_demosaiced_colour_menon2007_crop2.png) |

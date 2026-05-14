@@ -9,6 +9,4 @@ wheels/
 # Virtual environments
 .venv
 
-TIP_RI/
 
-uv.lock
