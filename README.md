@@ -51,6 +51,13 @@ The specialized benchmark compares all five algorithms in this repository with O
 python benchmark_tshirts.py --runs 5
 ```
 
+The IMAX/Kodak benchmark uses the official Tokyo Tech RI benchmark archive linked from the upstream project page. Download and extract the expected `datasets/IMAX` and `datasets/Kodak` files before running `benchmark.py`:
+
+```bash
+python download_datasets.py
+python benchmark.py --benchmark
+```
+
 Benchmark image: `tshirts.jpg` (1500 x 1000), Bayer pattern `RGGB`, 5 timed runs after one warmup. CPSNR is computed against the original RGB image with `peak=255` and no border crop. SSIM Avg is the RGB-channel average from `demosaic.ssim`.
 
 | Method | Implementation | CPSNR (dB) | SSIM Avg | Time (s) |
