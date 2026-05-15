@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -16,7 +17,9 @@ EXPECTED_FILES = {
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Download the IMAX/Kodak benchmark datasets used by benchmark.py.")
+    parser = argparse.ArgumentParser(
+        description="Download the IMAX/Kodak benchmark datasets used by benchmark.py."
+    )
     parser.add_argument(
         "--root",
         type=Path,
@@ -24,30 +27,15 @@ def parse_args() -> argparse.Namespace:
         help="dataset output directory (default: datasets)",
     )
     parser.add_argument(
-        "--cache-dir",
-        type=Path,
-        default=Path("datasets/.cache"),
-        help="download cache directory (default: datasets/.cache)",
-    )
-    parser.add_argument(
-        "--force-download",
-        action="store_true",
-        help="download Benchmark.zip even if it already exists in the cache",
-    )
-    parser.add_argument(
         "--force-extract",
         action="store_true",
-        help="overwrite existing dataset files during extraction",
+        help="download again and overwrite existing dataset files",
     )
     return parser.parse_args()
 
 
-def download_archive(url: str, archive_path: Path, force: bool) -> None:
+def download_archive(url: str, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    if archive_path.exists() and not force:
-        print(f"Using cached archive: {archive_path}")
-        return
-
     tmp_path = archive_path.with_name(f"{archive_path.name}.download")
     print(f"Downloading: {url}")
     try:
@@ -109,38 +97,55 @@ def extract_datasets(archive_path: Path, root: Path, force: bool) -> tuple[int, 
     return extracted, skipped
 
 
-def verify_datasets(root: Path) -> None:
+def dataset_errors(root: Path) -> list[str]:
     errors: list[str] = []
     for dataset, filenames in EXPECTED_FILES.items():
         dataset_dir = root / dataset
         expected = set(filenames)
-        actual = {path.name for path in dataset_dir.iterdir() if path.is_file()} if dataset_dir.exists() else set()
+        if dataset_dir.exists() and not dataset_dir.is_dir():
+            errors.append(f"{dataset}: expected directory at {dataset_dir}")
+            actual = set()
+        elif dataset_dir.exists():
+            actual = {path.name for path in dataset_dir.iterdir() if path.is_file()}
+        else:
+            actual = set()
         missing = sorted(expected - actual)
         extra = sorted(actual - expected)
         if missing:
             errors.append(f"{dataset}: missing {', '.join(missing)}")
         if extra:
             errors.append(f"{dataset}: unexpected {', '.join(extra)}")
+    return errors
 
+
+def verify_datasets(root: Path) -> None:
+    errors = dataset_errors(root)
     if errors:
         raise RuntimeError("Dataset verification failed:\n" + "\n".join(f"  {error}" for error in errors))
 
 
 def main() -> int:
     args = parse_args()
-    archive_path = args.cache_dir / "Benchmark.zip"
+    total = sum(len(files) for files in EXPECTED_FILES.values())
 
     print(f"Source URL: {BENCHMARK_URL}")
-    print(f"Cache path: {archive_path}")
-    download_archive(BENCHMARK_URL, archive_path, args.force_download)
-    extracted, skipped = extract_datasets(archive_path, args.root, args.force_extract)
+    print(f"Dataset root: {args.root}")
+
+    if not args.force_extract and not dataset_errors(args.root):
+        print("Datasets already complete; skipping download.")
+        print(f"Verified files: {total}")
+        return 0
+
+    with tempfile.TemporaryDirectory(prefix="ri-benchmark-") as tmpdir:
+        archive_path = Path(tmpdir) / "Benchmark.zip"
+        download_archive(BENCHMARK_URL, archive_path)
+        extracted, skipped = extract_datasets(archive_path, args.root, args.force_extract)
+
     verify_datasets(args.root)
 
-    total = sum(len(files) for files in EXPECTED_FILES.values())
     print(f"Extracted files: {extracted}")
     print(f"Skipped existing files: {skipped}")
     print(f"Verified files: {total}")
-    print(f"Dataset root: {args.root}")
     return 0
 
 
