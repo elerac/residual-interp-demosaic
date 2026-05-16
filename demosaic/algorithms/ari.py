@@ -103,7 +103,9 @@ def demosaic_ari2(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndar
 
 def _as_float_inputs(mosaic: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     mosaic = np.asarray(mosaic, dtype=np.float64)
-    mask = np.asarray(mask, dtype=np.float64)
+    mask = np.asarray(mask)
+    if mask.dtype != np.bool_:
+        mask = mask != 0
     if mosaic.ndim != 3 or mask.ndim != 3 or mosaic.shape != mask.shape or mosaic.shape[2] != 3:
         raise ValueError("mosaic and mask must both have shape (height, width, 3)")
     return mosaic, mask
@@ -210,26 +212,26 @@ def _mask_gr_gb(shape: tuple[int, int], pattern: str) -> tuple[np.ndarray, np.nd
     pattern = pattern.lower()
     if _shared_mask_gr_gb is not None:
         mask_gr, mask_gb = _shared_mask_gr_gb(shape, pattern)
-        mask_gr = np.asarray(mask_gr, dtype=np.float64)
-        mask_gb = np.asarray(mask_gb, dtype=np.float64)
+        mask_gr = np.asarray(mask_gr, dtype=bool)
+        mask_gb = np.asarray(mask_gb, dtype=bool)
         mask_gr.setflags(write=False)
         mask_gb.setflags(write=False)
         return mask_gr, mask_gb
 
-    mask_gr = np.zeros(shape, dtype=np.float64)
-    mask_gb = np.zeros(shape, dtype=np.float64)
+    mask_gr = np.zeros(shape, dtype=bool)
+    mask_gb = np.zeros(shape, dtype=bool)
     if pattern == "grbg":
-        mask_gr[0::2, 0::2] = 1
-        mask_gb[1::2, 1::2] = 1
+        mask_gr[0::2, 0::2] = True
+        mask_gb[1::2, 1::2] = True
     elif pattern == "rggb":
-        mask_gr[0::2, 1::2] = 1
-        mask_gb[1::2, 0::2] = 1
+        mask_gr[0::2, 1::2] = True
+        mask_gb[1::2, 0::2] = True
     elif pattern == "gbrg":
-        mask_gb[0::2, 0::2] = 1
-        mask_gr[1::2, 1::2] = 1
+        mask_gb[0::2, 0::2] = True
+        mask_gr[1::2, 1::2] = True
     elif pattern == "bggr":
-        mask_gb[0::2, 1::2] = 1
-        mask_gr[1::2, 0::2] = 1
+        mask_gb[0::2, 1::2] = True
+        mask_gr[1::2, 0::2] = True
     else:
         raise ValueError(f"unsupported Bayer pattern: {pattern!r}")
     mask_gr.setflags(write=False)
@@ -922,14 +924,14 @@ def _green_interpolation(mosaic: np.ndarray, mask: np.ndarray, pattern: str, eps
     mask_r = mask[:, :, 0]
     mask_g = mask[:, :, 1]
     mask_b = mask[:, :, 2]
-    imask_g = (mask_g == 0).astype(np.float64)
+    imask_g = ~mask_g
     rawq = mosaic_r + mosaic_g + mosaic_b
     mask_gr, mask_gb = _mask_gr_gb(rawq.shape, pattern)
 
-    Mrh = mask_r + mask_gr
-    Mbh = mask_b + mask_gb
-    Mrv = mask_r + mask_gb
-    Mbv = mask_b + mask_gr
+    Mrh = np.logical_or(mask_r, mask_gr)
+    Mbh = np.logical_or(mask_b, mask_gb)
+    Mrv = np.logical_or(mask_r, mask_gb)
+    Mbv = np.logical_or(mask_b, mask_gr)
 
     Kh = _ARI_HALF_H
     Kv = _ARI_HALF_V
@@ -953,10 +955,10 @@ def _green_interpolation(mosaic: np.ndarray, mask: np.ndarray, pattern: str, eps
     v2 = 0
     itnum = 11
 
-    RI_w2h = np.full_like(mask_gr, 1e32)
-    RI_w2v = np.full_like(mask_gr, 1e32)
-    MLRI_w2h = np.full_like(mask_gr, 1e32)
-    MLRI_w2v = np.full_like(mask_gr, 1e32)
+    RI_w2h = np.full(mask_gr.shape, 1e32, dtype=np.float64)
+    RI_w2v = np.full(mask_gr.shape, 1e32, dtype=np.float64)
+    MLRI_w2h = np.full(mask_gr.shape, 1e32, dtype=np.float64)
+    MLRI_w2v = np.full(mask_gr.shape, 1e32, dtype=np.float64)
 
     RI_Guidegrh = Guidegrh.copy()
     RI_Guidegbh = Guidegbh.copy()
@@ -1326,11 +1328,7 @@ def _blue_interpolation(green: np.ndarray, mosaic: np.ndarray, mask: np.ndarray,
 
 
 def _inverse_mask(mask: np.ndarray) -> np.ndarray:
-    imask = np.zeros_like(mask, dtype=np.float64)
-    imask[:, :, 0] = (mask[:, :, 0] == 0).astype(np.float64)
-    imask[:, :, 1] = (mask[:, :, 1] == 0).astype(np.float64)
-    imask[:, :, 2] = (mask[:, :, 2] == 0).astype(np.float64)
-    return imask
+    return ~mask
 
 
 def _red_blue_interpolation_first(
@@ -1354,14 +1352,15 @@ def _red_blue_interpolation_first(
     h2, v2 = 2, 0
     itnum = 2
 
-    RI_w2R1 = np.ones_like(mask[:, :, 0]) * 1e32
-    RI_w2R2 = np.ones_like(mask[:, :, 0]) * 1e32
-    MLRI_w2R1 = np.ones_like(mask[:, :, 0]) * 1e32
-    MLRI_w2R2 = np.ones_like(mask[:, :, 0]) * 1e32
-    RI_w2B1 = np.ones_like(mask[:, :, 0]) * 1e32
-    RI_w2B2 = np.ones_like(mask[:, :, 0]) * 1e32
-    MLRI_w2B1 = np.ones_like(mask[:, :, 0]) * 1e32
-    MLRI_w2B2 = np.ones_like(mask[:, :, 0]) * 1e32
+    shape = mask.shape[:2]
+    RI_w2R1 = np.full(shape, 1e32, dtype=np.float64)
+    RI_w2R2 = np.full(shape, 1e32, dtype=np.float64)
+    MLRI_w2R1 = np.full(shape, 1e32, dtype=np.float64)
+    MLRI_w2R2 = np.full(shape, 1e32, dtype=np.float64)
+    RI_w2B1 = np.full(shape, 1e32, dtype=np.float64)
+    RI_w2B2 = np.full(shape, 1e32, dtype=np.float64)
+    MLRI_w2B1 = np.full(shape, 1e32, dtype=np.float64)
+    MLRI_w2B2 = np.full(shape, 1e32, dtype=np.float64)
 
     RI_Guideg1 = guideg1.copy()
     RI_Guider1 = guider1.copy()
@@ -1824,11 +1823,7 @@ def _red_blue_interpolation_second(
 
 
 def _inverse_mask(mask: np.ndarray) -> np.ndarray:
-    imask = np.empty_like(mask, dtype=np.float64)
-    imask[:, :, 0] = (mask[:, :, 0] == 0).astype(np.float64)
-    imask[:, :, 1] = (mask[:, :, 1] == 0).astype(np.float64)
-    imask[:, :, 2] = (mask[:, :, 2] == 0).astype(np.float64)
-    return imask
+    return ~mask
 
 
 def _red_blue_interpolation_first(
@@ -1839,7 +1834,7 @@ def _red_blue_interpolation_first(
     mask_r = mask[:, :, 0]
     mask_g = mask[:, :, 1]
     mask_b = mask[:, :, 2]
-    imask_g = (mask_g == 0).astype(np.float64)
+    imask_g = ~mask_g
 
     F1 = _ARI_DIAG_HALF_1
     F1_red, F1_blue = _imfilter_many((mosaic_r, mosaic_b), F1, "replicate")
@@ -1858,14 +1853,14 @@ def _red_blue_interpolation_first(
     v2 = 0
     itnum = 2
 
-    RI_w2R1 = np.full_like(mask_r, 1e32)
-    RI_w2R2 = np.full_like(mask_r, 1e32)
-    MLRI_w2R1 = np.full_like(mask_r, 1e32)
-    MLRI_w2R2 = np.full_like(mask_r, 1e32)
-    RI_w2B1 = np.full_like(mask_r, 1e32)
-    RI_w2B2 = np.full_like(mask_r, 1e32)
-    MLRI_w2B1 = np.full_like(mask_r, 1e32)
-    MLRI_w2B2 = np.full_like(mask_r, 1e32)
+    RI_w2R1 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    RI_w2R2 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    MLRI_w2R1 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    MLRI_w2R2 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    RI_w2B1 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    RI_w2B2 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    MLRI_w2B1 = np.full(mask_r.shape, 1e32, dtype=np.float64)
+    MLRI_w2B2 = np.full(mask_r.shape, 1e32, dtype=np.float64)
 
     RI_Guideg1 = Guideg1.copy()
     RI_Guider1 = Guider1.copy()
@@ -2148,7 +2143,7 @@ def _red_blue_interpolation_second(
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     mask_g = mask[:, :, 1]
-    imask_g = (mask_g == 0).astype(np.float64)
+    imask_g = ~mask_g
 
     F1 = _ARI_HALF_H
     F1_red, F1_blue = _imfilter_many((red, blue), F1, "replicate")
@@ -2166,16 +2161,16 @@ def _red_blue_interpolation_second(
     h2 = 2
     v2 = 0
     itnum = 2
-    base = np.ones_like(mask_g)
+    base = np.ones(mask_g.shape, dtype=bool)
 
-    RI_w2R1 = np.full_like(mask_g, 1e32)
-    RI_w2R2 = np.full_like(mask_g, 1e32)
-    MLRI_w2R1 = np.full_like(mask_g, 1e32)
-    MLRI_w2R2 = np.full_like(mask_g, 1e32)
-    RI_w2B1 = np.full_like(mask_g, 1e32)
-    RI_w2B2 = np.full_like(mask_g, 1e32)
-    MLRI_w2B1 = np.full_like(mask_g, 1e32)
-    MLRI_w2B2 = np.full_like(mask_g, 1e32)
+    RI_w2R1 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    RI_w2R2 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    MLRI_w2R1 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    MLRI_w2R2 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    RI_w2B1 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    RI_w2B2 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    MLRI_w2B1 = np.full(mask_g.shape, 1e32, dtype=np.float64)
+    MLRI_w2B2 = np.full(mask_g.shape, 1e32, dtype=np.float64)
 
     RI_Guideg1 = Guideg1.copy()
     RI_Guider1 = Guider1.copy()

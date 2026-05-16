@@ -88,6 +88,16 @@ def _boxfilter_count(m: np.ndarray, h: int, v: int) -> np.ndarray:
     return n
 
 
+def _as_float_mosaic_bool_mask(mosaic: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    mosaic = np.asarray(mosaic, dtype=np.float64)
+    mask = np.asarray(mask)
+    if mask.dtype != np.bool_:
+        mask = mask != 0
+    if mosaic.ndim != 3 or mask.ndim != 3 or mosaic.shape != mask.shape or mosaic.shape[2] != 3:
+        raise ValueError("mosaic and mask must both have shape (height, width, 3)")
+    return mosaic, mask
+
+
 def _bayer_count(shape: tuple[int, int], pattern: str, key: str, h: int, v: int) -> np.ndarray:
     row_phase, col_phase = _BAYER_PHASES[pattern.lower()][key]
     return _bayer_phase_count(shape, row_phase, col_phase, h, v)
@@ -261,7 +271,7 @@ def _ri_green_interpolation(mosaic: np.ndarray, mask: np.ndarray, pattern: str, 
     mask_r = mask[:, :, 0]
     mask_g = mask[:, :, 1]
     mask_b = mask[:, :, 2]
-    imask_g = (mask_g == 0).astype(np.float64)
+    imask_g = ~mask_g
     mosaic_g_gr = mosaic_g * mask_gr
     mosaic_g_gb = mosaic_g * mask_gb
 
@@ -358,7 +368,7 @@ def _mlri_green_interpolation(
     mask_r = mask[:, :, 0]
     mask_g = mask[:, :, 1]
     mask_b = mask[:, :, 2]
-    imask_g = (mask_g == 0).astype(np.float64)
+    imask_g = ~mask_g
     mosaic_g_gr = mosaic_g * mask_gr
     mosaic_g_gb = mosaic_g * mask_gb
 
@@ -561,6 +571,7 @@ def _mlri_red_blue_pair(
 
 
 def demosaic_ri(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndarray:
+    mosaic, mask = _as_float_mosaic_bool_mask(mosaic, mask)
     green = _ri_green_interpolation(mosaic, mask, pattern, sigma=1.0)
     red, blue = _ri_red_blue_pair(green, mosaic, mask, pattern)
     out = np.empty((*green.shape, 3), dtype=np.float64)
@@ -571,6 +582,7 @@ def demosaic_ri(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndarra
 
 
 def demosaic_mlri(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndarray:
+    mosaic, mask = _as_float_mosaic_bool_mask(mosaic, mask)
     green = _mlri_green_interpolation(mosaic, mask, pattern, sigma=1.4, eps=0.0, weighted=False)
     green = clip(green, 0, 255)
     red, blue = _mlri_red_blue_pair(green, mosaic, mask, pattern, eps=0.0, weighted=False)
@@ -584,6 +596,7 @@ def demosaic_mlri(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndar
 
 
 def demosaic_mlri2(mosaic: np.ndarray, mask: np.ndarray, pattern: str) -> np.ndarray:
+    mosaic, mask = _as_float_mosaic_bool_mask(mosaic, mask)
     eps = 1e-32
     green = _mlri_green_interpolation(mosaic, mask, pattern, sigma=1.0, eps=eps, weighted=True)
     green = clip(green, 0, 255)

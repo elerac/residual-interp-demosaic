@@ -108,15 +108,20 @@ def test_reference_bayer_helpers_match_current(pattern: str):
     rgb = _deterministic_rgb((5, 6))
     bgr = rgb[:, :, ::-1]
 
-    np.testing.assert_array_equal(bayer_mask(rgb.shape[:2], pattern), reference_bayer_mask(rgb.shape[:2], pattern))
+    mask_full = bayer_mask(rgb.shape[:2], pattern)
+    assert mask_full.dtype == np.bool_
+    np.testing.assert_array_equal(mask_full, reference_bayer_mask(rgb.shape[:2], pattern))
 
     mosaic, mask = mosaic_bayer(rgb, pattern)
     reference_mosaic, reference_mask = reference_mosaic_bayer(rgb, pattern)
+    assert mask.dtype == np.bool_
     np.testing.assert_array_equal(mosaic, reference_mosaic)
     np.testing.assert_array_equal(mask, reference_mask)
 
     mask_gr, mask_gb = mask_gr_gb(rgb.shape[:2], pattern)
     reference_mask_gr, reference_mask_gb = reference_mask_gr_gb(rgb.shape[:2], pattern)
+    assert mask_gr.dtype == np.bool_
+    assert mask_gb.dtype == np.bool_
     np.testing.assert_array_equal(mask_gr, reference_mask_gr)
     np.testing.assert_array_equal(mask_gb, reference_mask_gb)
     np.testing.assert_array_equal(mosaicing_cfa_bayer(bgr, pattern), reference_mosaicing_cfa_bayer(bgr, pattern))

@@ -41,11 +41,13 @@ def test_mosaic_bayer_matches_matlab_sparse_rgb_mask():
 
     mosaic, mask = mosaic_bayer(rgb, "grbg")
 
-    expected_mask = np.zeros_like(rgb)
-    expected_mask[0::2, 0::2, 1] = 1
-    expected_mask[0::2, 1::2, 0] = 1
-    expected_mask[1::2, 0::2, 2] = 1
-    expected_mask[1::2, 1::2, 1] = 1
+    expected_mask = np.zeros_like(rgb, dtype=bool)
+    expected_mask[0::2, 0::2, 1] = True
+    expected_mask[0::2, 1::2, 0] = True
+    expected_mask[1::2, 0::2, 2] = True
+    expected_mask[1::2, 1::2, 1] = True
+    assert mask.dtype == np.bool_
+    assert mosaic.dtype == np.float64
     np.testing.assert_array_equal(mask, expected_mask)
     np.testing.assert_array_equal(mosaic, rgb * expected_mask)
 

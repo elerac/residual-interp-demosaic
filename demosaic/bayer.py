@@ -61,15 +61,15 @@ def _pattern_channels(pattern: str) -> list[int]:
 def bayer_mask(shape: tuple[int, int], pattern: str) -> np.ndarray:
     height, width = shape
     channels = _pattern_channels(pattern)
-    mask = np.zeros((height, width, 3), dtype=np.float64)
+    mask = np.zeros((height, width, 3), dtype=bool)
     rows1 = slice(0, None, 2)
     rows2 = slice(1, None, 2)
     cols1 = slice(0, None, 2)
     cols2 = slice(1, None, 2)
-    mask[rows1, cols1, channels[0]] = 1.0
-    mask[rows1, cols2, channels[1]] = 1.0
-    mask[rows2, cols1, channels[2]] = 1.0
-    mask[rows2, cols2, channels[3]] = 1.0
+    mask[rows1, cols1, channels[0]] = True
+    mask[rows1, cols2, channels[1]] = True
+    mask[rows2, cols1, channels[2]] = True
+    mask[rows2, cols2, channels[3]] = True
     return mask
 
 
@@ -77,8 +77,19 @@ def mosaic_bayer(rgb: np.ndarray, pattern: str) -> tuple[np.ndarray, np.ndarray]
     rgb = np.asarray(rgb, dtype=np.float64)
     if rgb.ndim != 3 or rgb.shape[2] != 3:
         raise ValueError("rgb must have shape (height, width, 3)")
-    mask = bayer_mask(rgb.shape[:2], pattern)
-    return rgb * mask, mask
+    channels = _pattern_channels(pattern)
+    mask = np.zeros(rgb.shape, dtype=bool)
+    mosaic = np.zeros_like(rgb, dtype=np.float64)
+    phases = (
+        (slice(0, None, 2), slice(0, None, 2), channels[0]),
+        (slice(0, None, 2), slice(1, None, 2), channels[1]),
+        (slice(1, None, 2), slice(0, None, 2), channels[2]),
+        (slice(1, None, 2), slice(1, None, 2), channels[3]),
+    )
+    for rows, cols, channel in phases:
+        mosaic[rows, cols, channel] = rgb[rows, cols, channel]
+        mask[rows, cols, channel] = True
+    return mosaic, mask
 
 
 def mask_gr_gb(shape: tuple[int, int], pattern: str) -> tuple[np.ndarray, np.ndarray]:
@@ -86,18 +97,18 @@ def mask_gr_gb(shape: tuple[int, int], pattern: str) -> tuple[np.ndarray, np.nda
     if pattern not in PATTERNS:
         raise ValueError(f"unsupported Bayer pattern: {pattern!r}")
     height, width = shape
-    mask_gr = np.zeros((height, width), dtype=np.float64)
-    mask_gb = np.zeros((height, width), dtype=np.float64)
+    mask_gr = np.zeros((height, width), dtype=bool)
+    mask_gb = np.zeros((height, width), dtype=bool)
     if pattern == "grbg":
-        mask_gr[0::2, 0::2] = 1.0
-        mask_gb[1::2, 1::2] = 1.0
+        mask_gr[0::2, 0::2] = True
+        mask_gb[1::2, 1::2] = True
     elif pattern == "rggb":
-        mask_gr[0::2, 1::2] = 1.0
-        mask_gb[1::2, 0::2] = 1.0
+        mask_gr[0::2, 1::2] = True
+        mask_gb[1::2, 0::2] = True
     elif pattern == "gbrg":
-        mask_gb[0::2, 0::2] = 1.0
-        mask_gr[1::2, 1::2] = 1.0
+        mask_gb[0::2, 0::2] = True
+        mask_gr[1::2, 1::2] = True
     elif pattern == "bggr":
-        mask_gb[0::2, 1::2] = 1.0
-        mask_gr[1::2, 0::2] = 1.0
+        mask_gb[0::2, 1::2] = True
+        mask_gr[1::2, 0::2] = True
     return mask_gr, mask_gb

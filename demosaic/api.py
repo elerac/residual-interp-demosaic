@@ -45,7 +45,7 @@ def demosaic(cfa: np.ndarray, code: str) -> np.ndarray:
 def _mosaic_from_cfa(cfa: np.ndarray, pattern: str) -> tuple[np.ndarray, np.ndarray]:
     cfa_float = np.asarray(cfa, dtype=np.float64)
     mosaic = np.zeros((*cfa_float.shape, 3), dtype=np.float64)
-    mask = np.zeros_like(mosaic)
+    mask = np.zeros(mosaic.shape, dtype=bool)
     phases = (
         (slice(0, None, 2), slice(0, None, 2), pattern[0]),
         (slice(0, None, 2), slice(1, None, 2), pattern[1]),
@@ -55,5 +55,5 @@ def _mosaic_from_cfa(cfa: np.ndarray, pattern: str) -> tuple[np.ndarray, np.ndar
     for rows, cols, channel_name in phases:
         channel = _RGB_CHANNELS[channel_name]
         mosaic[rows, cols, channel] = cfa_float[rows, cols]
-        mask[rows, cols, channel] = 1.0
+        mask[rows, cols, channel] = True
     return mosaic, mask
