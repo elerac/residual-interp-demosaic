@@ -32,8 +32,8 @@
         "b": 0.9862710573698337,
         "avg": 0.9884553922449805
       },
-      "time_mean_s": 0.47270109159871937,
-      "time_std_s": 0.025329251477699568,
+      "time_mean_s": 0.5055428834632039,
+      "time_std_s": 0.019804695754755675,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_ri.png"
     },
@@ -48,8 +48,8 @@
         "b": 0.986457973031961,
         "avg": 0.9886642573002208
       },
-      "time_mean_s": 0.5336145834997297,
-      "time_std_s": 0.004976557999281483,
+      "time_mean_s": 0.5797130334191024,
+      "time_std_s": 0.013713839276269232,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_mlri.png"
     },
@@ -64,8 +64,8 @@
         "b": 0.9871528856729332,
         "avg": 0.9892198840679969
       },
-      "time_mean_s": 0.8046993918716907,
-      "time_std_s": 0.021765967405128553,
+      "time_mean_s": 0.8779451831243932,
+      "time_std_s": 0.02126532001075567,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_mlri2.png"
     },
@@ -80,8 +80,8 @@
         "b": 0.9875064548725305,
         "avg": 0.9898300163023069
       },
-      "time_mean_s": 44.32130292486399,
-      "time_std_s": 0.5335023774850316,
+      "time_mean_s": 43.81997337499634,
+      "time_std_s": 0.17187547513414858,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_ari.png"
     },
@@ -96,8 +96,8 @@
         "b": 0.9881582832581511,
         "avg": 0.9902052106607008
       },
-      "time_mean_s": 52.45782294990495,
-      "time_std_s": 0.17916389666560495,
+      "time_mean_s": 52.378789574932306,
+      "time_std_s": 0.3637142437393993,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_ari2.png"
     },
@@ -112,8 +112,8 @@
         "b": 0.9373385176696202,
         "avg": 0.9499598178394536
       },
-      "time_mean_s": 0.00015764981508255006,
-      "time_std_s": 0.0001296563798911781,
+      "time_mean_s": 0.00012434208765625953,
+      "time_std_s": 2.7154604681860757e-05,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_opencv_bilinear.png"
     },
@@ -128,8 +128,8 @@
         "b": 0.9373385176696202,
         "avg": 0.9511048255369378
       },
-      "time_mean_s": 0.0002241586335003376,
-      "time_std_s": 0.00012267725355465304,
+      "time_mean_s": 0.00016271714121103288,
+      "time_std_s": 1.5059888978951353e-05,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_opencv_ea.png"
     },
@@ -144,8 +144,8 @@
         "b": 0.9697184609423521,
         "avg": 0.9771961285423453
       },
-      "time_mean_s": 0.07593921646475792,
-      "time_std_s": 0.0005763812863566798,
+      "time_mean_s": 0.07844842514023184,
+      "time_std_s": 0.0013491036296447779,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_colour_malvar2004.png"
     },
@@ -160,8 +160,8 @@
         "b": 0.9762945803804978,
         "avg": 0.9817383626412387
       },
-      "time_mean_s": 0.22365565011277794,
-      "time_std_s": 0.002510950088683843,
+      "time_mean_s": 0.22432674979791045,
+      "time_std_s": 0.0035343075703403526,
       "runs": 5,
       "output": "results/tshirts/tshirts_demosaiced_colour_menon2007.png"
     }

@@ -63,15 +63,15 @@ Benchmark image: `tshirts.jpg` (1500 x 1000), Bayer pattern `RGGB`, 5 timed runs
 
 | Method | Implementation | CPSNR (dB) | SSIM Avg | Time (s) |
 | --- | --- | ---: | ---: | ---: |
-| ARI2 | This repository | *38.86* | **0.9902** | 52.4578 |
-| ARI | This repository | **38.88** | *0.9898* | 44.3213 |
-| MLRI2 | This repository | 38.29 | 0.9892 | 0.8047 |
-| MLRI | This repository | 38.04 | 0.9887 | 0.5336 |
-| RI | This repository | 38.03 | 0.9885 | 0.4727 |
-| Menon2007 | colour_demosaicing | 35.69 | 0.9817 | 0.2237 |
-| Malvar2004 | colour_demosaicing | 34.54 | 0.9772 | 0.0759 |
+| ARI2 | This repository | *38.86* | **0.9902** | 52.3788 |
+| ARI | This repository | **38.88** | *0.9898* | 43.8200 |
+| MLRI2 | This repository | 38.29 | 0.9892 | 0.8779 |
+| MLRI | This repository | 38.04 | 0.9887 | 0.5797 |
+| RI | This repository | 38.03 | 0.9885 | 0.5055 |
+| Menon2007 | colour_demosaicing | 35.69 | 0.9817 | 0.2243 |
+| Malvar2004 | colour_demosaicing | 34.54 | 0.9772 | 0.0784 |
 | Edge-Aware | OpenCV | 30.77 | 0.9511 | 0.0002 |
-| Bilinear | OpenCV | 30.57 | 0.9500 | 0.0002 |
+| Bilinear | OpenCV | 30.57 | 0.9500 | 0.0001 |
 
 ## Input and CFA
 
