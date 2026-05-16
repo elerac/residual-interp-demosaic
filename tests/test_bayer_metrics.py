@@ -7,7 +7,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from demosaic import boxfilter, clip, cpsnr, imfilter, mosaic_bayer, parse_code, psnr, ssim_index
+from demosaic import boxfilter, clip, cpsnr, demosaic, imfilter, mosaic_bayer, mosaicing_cfa_bayer, parse_code, psnr, ssim_index
+
+
+_BGR_CHANNELS = {"r": 2, "g": 1, "b": 0}
 
 
 @pytest.mark.parametrize(
@@ -45,6 +48,45 @@ def test_mosaic_bayer_matches_matlab_sparse_rgb_mask():
     expected_mask[1::2, 1::2, 1] = 1
     np.testing.assert_array_equal(mask, expected_mask)
     np.testing.assert_array_equal(mosaic, rgb * expected_mask)
+
+
+@pytest.mark.parametrize("pattern", ("rggb", "grbg", "gbrg", "bggr"))
+def test_mosaicing_cfa_bayer_matches_expected_bgr_sampling(pattern):
+    image_bgr = np.arange(4 * 5 * 3, dtype=np.uint16).reshape(4, 5, 3)
+
+    cfa = mosaicing_cfa_bayer(image_bgr, pattern.upper())
+
+    expected = np.empty(image_bgr.shape[:2], dtype=image_bgr.dtype)
+    phases = (
+        (slice(0, None, 2), slice(0, None, 2), pattern[0]),
+        (slice(0, None, 2), slice(1, None, 2), pattern[1]),
+        (slice(1, None, 2), slice(0, None, 2), pattern[2]),
+        (slice(1, None, 2), slice(1, None, 2), pattern[3]),
+    )
+    for rows, cols, channel_name in phases:
+        expected[rows, cols] = image_bgr[rows, cols, _BGR_CHANNELS[channel_name]]
+
+    assert cfa.dtype == image_bgr.dtype
+    np.testing.assert_array_equal(cfa, expected)
+
+
+def test_mosaicing_cfa_bayer_rejects_non_bgr_input():
+    with pytest.raises(ValueError, match="image_bgr must have shape"):
+        mosaicing_cfa_bayer(np.zeros((4, 4)), "RGGB")
+
+
+def test_demosaic_rejects_old_three_channel_input():
+    with pytest.raises(ValueError, match="3-channel BGR inputs are no longer supported"):
+        demosaic(np.zeros((8, 8, 3)), "COLOR_BayerRGGB2BGR_RI")
+
+
+def test_demosaic_accepts_single_channel_cfa_input():
+    cfa = np.zeros((8, 8), dtype=np.uint8)
+
+    output = demosaic(cfa, "COLOR_BayerRGGB2BGR_RI")
+
+    assert output.shape == (8, 8, 3)
+    assert output.dtype == np.float64
 
 
 def test_imfilter_uses_correlation_and_replicate_padding():

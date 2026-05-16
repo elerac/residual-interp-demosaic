@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from demosaic import cpsnr, demosaic, psnr, ssim
+from demosaic import cpsnr, demosaic, mosaicing_cfa_bayer, psnr, ssim
 
 TARGET_ALGORITHMS = ("RI", "MLRI2", "ARI", "ARI2")
 ALL_ALGORITHMS = ("RI", "MLRI", "MLRI2", "ARI", "ARI2")
@@ -24,7 +24,8 @@ def _evaluate_image(path: Path, algorithm: str) -> tuple[np.ndarray, float, np.n
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if bgr is None:
         raise FileNotFoundError(path)
-    out_bgr = demosaic(bgr, _code(algorithm))
+    cfa = mosaicing_cfa_bayer(bgr, "GRBG")
+    out_bgr = demosaic(cfa, _code(algorithm))
     ref_rgb = bgr[:, :, ::-1].astype(np.float64)
     out_rgb = out_bgr[:, :, ::-1]
     return psnr(ref_rgb, out_rgb, peak=255, border=10), cpsnr(ref_rgb, out_rgb, peak=255, border=10), ssim(ref_rgb, out_rgb)

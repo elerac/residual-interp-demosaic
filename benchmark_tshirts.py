@@ -12,8 +12,7 @@ import cv2
 import numpy as np
 from colour_demosaicing import demosaicing_CFA_Bayer_Malvar2004, demosaicing_CFA_Bayer_Menon2007
 
-from demosaic import cpsnr, mosaic_bayer, ssim
-from demosaic.algorithms import demosaic_ari, demosaic_ari2, demosaic_mlri, demosaic_mlri2, demosaic_ri
+from demosaic import bayer_mask, cpsnr, demosaic, mosaicing_cfa_bayer, ssim
 
 
 PATTERNS = ("RGGB", "GRBG", "GBRG", "BGGR")
@@ -49,11 +48,6 @@ def _write_png(path: Path, image: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(path), image):
         raise RuntimeError(f"failed to write {path}")
-
-
-def _as_bgr_uint8_from_rgb255(image_rgb: np.ndarray) -> np.ndarray:
-    clipped = np.clip(np.rint(image_rgb), 0, 255).astype(np.uint8)
-    return clipped[:, :, ::-1]
 
 
 def _as_bgr_uint8_from_rgb01(image_rgb: np.ndarray) -> np.ndarray:
@@ -206,9 +200,8 @@ def run_benchmark(input_path: Path, output_dir: Path, pattern: str, runs: int, c
 
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = input_path.stem
-    image_rgb = image_bgr[:, :, ::-1].astype(np.float64)
-    mosaic_rgb, mask_rgb = mosaic_bayer(image_rgb, pattern.lower())
-    cfa = np.clip(np.rint(mosaic_rgb.sum(axis=2)), 0, 255).astype(np.uint8)
+    mask_rgb = bayer_mask(image_bgr.shape[:2], pattern.lower())
+    cfa = mosaicing_cfa_bayer(image_bgr, pattern)
     cfa_float = cfa.astype(np.float32) / 255.0
     crop_specs = _safe_crop_specs(image_bgr.shape[:2], DEFAULT_CROPS, crop_size)
 
@@ -226,21 +219,23 @@ def run_benchmark(input_path: Path, output_dir: Path, pattern: str, runs: int, c
             _crop_and_zoom(cfa_bgr, x0, y0, crop_size, crop_size, zoom),
         )
 
-    local_methods: list[tuple[str, str, Callable[[np.ndarray, np.ndarray, str], np.ndarray]]] = [
-        ("ri", "RI", demosaic_ri),
-        ("mlri", "MLRI", demosaic_mlri),
-        ("mlri2", "MLRI2", demosaic_mlri2),
-        ("ari", "ARI", demosaic_ari),
-        ("ari2", "ARI2", demosaic_ari2),
+    local_methods: list[tuple[str, str]] = [
+        ("ri", "RI"),
+        ("mlri", "MLRI"),
+        ("mlri2", "MLRI2"),
+        ("ari", "ARI"),
+        ("ari2", "ARI2"),
     ]
     methods = [
         Method(
             key=key,
             label=label,
             implementation="This repository",
-            run=lambda fn=fn: _as_bgr_uint8_from_rgb255(fn(mosaic_rgb, mask_rgb, pattern.lower())),
+            run=lambda label=label: np.clip(
+                np.rint(demosaic(cfa, f"COLOR_Bayer{pattern}2BGR_{label}")), 0, 255
+            ).astype(np.uint8),
         )
-        for key, label, fn in local_methods
+        for key, label in local_methods
     ]
     methods.extend(
         [

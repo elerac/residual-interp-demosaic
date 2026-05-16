@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import demosaic
 import demosaic_reference
-from demosaic import bayer_mask, mask_gr_gb, mosaic_bayer, parse_code
+from demosaic import bayer_mask, mask_gr_gb, mosaic_bayer, mosaicing_cfa_bayer, parse_code
 from demosaic.algorithms import (
     demosaic_ari,
     demosaic_ari2,
@@ -24,6 +24,9 @@ from demosaic_reference import (
 )
 from demosaic_reference import (
     mosaic_bayer as reference_mosaic_bayer,
+)
+from demosaic_reference import (
+    mosaicing_cfa_bayer as reference_mosaicing_cfa_bayer,
 )
 from demosaic_reference import (
     parse_code as reference_parse_code,
@@ -103,6 +106,7 @@ def test_reference_parse_code_matches_current(code: str, expected: tuple[str, st
 @pytest.mark.parametrize("pattern", PATTERNS)
 def test_reference_bayer_helpers_match_current(pattern: str):
     rgb = _deterministic_rgb((5, 6))
+    bgr = rgb[:, :, ::-1]
 
     np.testing.assert_array_equal(bayer_mask(rgb.shape[:2], pattern), reference_bayer_mask(rgb.shape[:2], pattern))
 
@@ -115,6 +119,7 @@ def test_reference_bayer_helpers_match_current(pattern: str):
     reference_mask_gr, reference_mask_gb = reference_mask_gr_gb(rgb.shape[:2], pattern)
     np.testing.assert_array_equal(mask_gr, reference_mask_gr)
     np.testing.assert_array_equal(mask_gb, reference_mask_gb)
+    np.testing.assert_array_equal(mosaicing_cfa_bayer(bgr, pattern), reference_mosaicing_cfa_bayer(bgr, pattern))
 
 
 @pytest.mark.parametrize("rgb", (_deterministic_rgb(), _gradient_rgb()))
@@ -134,3 +139,18 @@ def test_reference_algorithm_outputs_match_current_with_tolerance(
 
     assert output.shape == reference_output.shape == rgb.shape
     np.testing.assert_allclose(output, reference_output, rtol=0, atol=0.25)
+
+
+@pytest.mark.parametrize("algorithm", tuple(ALGORITHMS))
+def test_public_demosaic_cfa_matches_direct_algorithm_path(algorithm: str):
+    pattern = "rggb"
+    code = f"COLOR_Bayer{pattern.upper()}2BGR_{algorithm}"
+    rgb = _deterministic_rgb((16, 16))
+    bgr = rgb[:, :, ::-1]
+    cfa = mosaicing_cfa_bayer(bgr, pattern)
+    mosaic, mask = mosaic_bayer(rgb, pattern)
+
+    direct_rgb = demosaic.clip(ALGORITHMS[algorithm][0](mosaic, mask, pattern), 0, 255)
+    public_bgr = demosaic.demosaic(cfa, code)
+
+    np.testing.assert_allclose(public_bgr, direct_rgb[:, :, ::-1], rtol=0, atol=0)

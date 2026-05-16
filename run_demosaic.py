@@ -5,7 +5,7 @@ from pathlib import Path
 
 import cv2
 
-from demosaic import demosaic
+from demosaic import demosaic, mosaicing_cfa_bayer
 
 METHODS = ("RI", "MLRI", "MLRI2", "ARI", "ARI2")
 
@@ -13,10 +13,13 @@ METHODS = ("RI", "MLRI", "MLRI2", "ARI", "ARI2")
 def run(input_path: Path, output_dir: Path, pattern: str = "GRBG") -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     image = cv2.imread(str(input_path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise FileNotFoundError(input_path)
+    cfa = mosaicing_cfa_bayer(image, pattern)
     stem = input_path.stem
 
     for algorithm in METHODS:
-        result = demosaic(image, f"COLOR_Bayer{pattern.upper()}2BGR_{algorithm}")
+        result = demosaic(cfa, f"COLOR_Bayer{pattern.upper()}2BGR_{algorithm}")
         output_path = output_dir / f"{stem}_{algorithm}.png"
         if not cv2.imwrite(str(output_path), result.astype("uint8")):
             raise RuntimeError(f"failed to write {output_path}")

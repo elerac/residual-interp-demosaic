@@ -4,8 +4,6 @@ Python re-implementation of residual interpolation demosaicing algorithms from t
 
 This repository provides a Python re-implementation only. It is not the original MATLAB release and is not an official distribution from the original authors. The upstream MATLAB code and publications were released by Yusuke Monno and Daisuke Kiku.
 
-The public `demosaic()` helper uses OpenCV-style code names and works with normal full-color OpenCV BGR images by generating a Bayer mosaic internally, then reconstructing the color image.
-
 `demosaic/` is the optimized implementation. `demosaic_reference/` is the naive MATLAB-to-Python translation kept only for comparison and regression tests; normal code should import `demosaic`.
 
 ## Usage
@@ -13,11 +11,12 @@ The public `demosaic()` helper uses OpenCV-style code names and works with norma
 ```python
 import cv2
 
-from demosaic import demosaic
+from demosaic import demosaic, mosaicing_cfa_bayer
 
-image = cv2.imread("tshirts.jpg", cv2.IMREAD_COLOR)
-result = demosaic(image, "COLOR_BayerRGGB2BGR_ARI")
-cv2.imwrite("tshirts_ari.png", result.astype("uint8"))
+img_bgr = cv2.imread("tshirts.jpg", cv2.IMREAD_COLOR)
+img_cfa = mosaicing_cfa_bayer(img_bgr, "RGGB")
+img_demosaiced = demosaic(img_cfa, "COLOR_BayerRGGB2BGR_ARI")
+cv2.imwrite("tshirts_ari.png", img_demosaiced.astype("uint8"))
 ```
 
 Codes use this form:
