@@ -2,14 +2,14 @@ Benchmark image: `tshirts.jpg` (1500 x 1000), Bayer pattern `RGGB`, 5 timed runs
 
 | Method | Implementation | CPSNR (dB) | SSIM Avg | Time (s) [mean +/- std] |
 | --- | --- | ---: | ---: | ---: |
-| ARI | This repository | 38.88 | 0.9898 | 87.4439+/-0.3120 |
-| ARI2 | This repository | 38.86 | 0.9902 | 103.6532+/-0.3959 |
-| MLRI2 | This repository | 38.29 | 0.9892 | 11.9840+/-0.0376 |
-| MLRI | This repository | 38.04 | 0.9887 | 7.7656+/-0.0184 |
-| RI | This repository | 38.03 | 0.9885 | 3.7507+/-0.0089 |
-| Menon2007 | colour_demosaicing | 35.69 | 0.9817 | 0.2246+/-0.0034 |
-| Malvar2004 | colour_demosaicing | 34.54 | 0.9772 | 0.0770+/-0.0012 |
-| Edge-Aware | OpenCV | 30.77 | 0.9511 | 0.0002+/-0.0000 |
+| ARI | This repository | 38.88 | 0.9898 | 44.3213+/-0.5335 |
+| ARI2 | This repository | 38.86 | 0.9902 | 52.4578+/-0.1792 |
+| MLRI2 | This repository | 38.29 | 0.9892 | 0.8047+/-0.0218 |
+| MLRI | This repository | 38.04 | 0.9887 | 0.5336+/-0.0050 |
+| RI | This repository | 38.03 | 0.9885 | 0.4727+/-0.0253 |
+| Menon2007 | colour_demosaicing | 35.69 | 0.9817 | 0.2237+/-0.0025 |
+| Malvar2004 | colour_demosaicing | 34.54 | 0.9772 | 0.0759+/-0.0006 |
+| Edge-Aware | OpenCV | 30.77 | 0.9511 | 0.0002+/-0.0001 |
 | Bilinear | OpenCV | 30.57 | 0.9500 | 0.0002+/-0.0001 |
 
 ### Input and CFA

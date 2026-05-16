@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
-
-import cv2
 import numpy as np
 from scipy import ndimage, signal
 
@@ -33,27 +30,10 @@ def boxfilter(src: np.ndarray, h: int, v: int) -> np.ndarray:
     src = np.asarray(src, dtype=np.float64)
     if h == 0 and v == 0:
         return np.zeros_like(src)
-    kernel_x = _boxfilter_1d_kernel(h) if h else _BOXFILTER_IDENTITY_KERNEL
-    kernel_y = _boxfilter_1d_kernel(v) if v else _BOXFILTER_IDENTITY_KERNEL
-    return cv2.sepFilter2D(
-        src,
-        ddepth=cv2.CV_64F,
-        kernelX=kernel_x,
-        kernelY=kernel_y,
-        anchor=(-1, -1),
-        borderType=cv2.BORDER_CONSTANT,
-    )
-
-
-_BOXFILTER_IDENTITY_KERNEL = np.array([1.0], dtype=np.float64)
-_BOXFILTER_IDENTITY_KERNEL.setflags(write=False)
-
-
-@lru_cache(maxsize=None)
-def _boxfilter_1d_kernel(radius: int) -> np.ndarray:
-    kernel = np.ones(2 * radius + 1, dtype=np.float64)
-    kernel.setflags(write=False)
-    return kernel
+    if src.ndim == 3:
+        return np.stack([boxfilter(src[:, :, channel], h, v) for channel in range(src.shape[2])], axis=2)
+    kernel = np.ones((2 * v + 1, 2 * h + 1), dtype=np.float64)
+    return ndimage.correlate(src, kernel, mode="constant", cval=0.0)
 
 
 def gaussian_kernel(size: tuple[int, int], sigma: float) -> np.ndarray:
