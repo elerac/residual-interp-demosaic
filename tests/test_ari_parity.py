@@ -15,6 +15,7 @@ from demosaic.algorithms import (
     demosaic_mlri2,
     demosaic_ri,
 )
+from demosaic.algorithms.ari import _cubic_kernel
 
 
 PATTERNS = ("rggb", "grbg", "gbrg", "bggr")
@@ -145,6 +146,15 @@ def _digest(image: np.ndarray) -> str:
     digest.update(b"|")
     digest.update(image.tobytes())
     return digest.hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("x", "expected"),
+    ((0.0, 1.0), (0.5, 0.5625), (1.0, 0.0), (1.5, -0.0625), (2.0, 0.0), (2.5, 0.0)),
+)
+def test_cubic_kernel_is_even_and_compact(x: float, expected: float):
+    assert _cubic_kernel(x) == pytest.approx(expected)
+    assert _cubic_kernel(-x) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("algorithm", ("ARI", "ARI2"))

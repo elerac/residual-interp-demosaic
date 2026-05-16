@@ -255,14 +255,16 @@ def _clip(image: np.ndarray, low: float = 0.0, high: float = 255.0) -> np.ndarra
     return np.clip(image, low, high)
 
 
-def _s(x: float) -> float:
-    a = -0.5
+def _cubic_kernel(x: float, a: float = -0.5) -> float:
     ax = abs(x)
-    if 2 > x > 1:
+
+    if ax <= 1:
+        return (a + 2) * ax**3 - (a + 3) * ax**2 + 1
+
+    if ax < 2:
         return a * ax**3 - 5 * a * ax**2 + 8 * a * ax - 4 * a
-    if a >= 2:
-        return 0.0
-    return (a + 2) * ax**3 - (a + 3) * ax**2 + 1
+
+    return 0.0
 
 
 def _boxfilter_count(M: np.ndarray, h: int, v: int) -> np.ndarray:
@@ -1272,10 +1274,10 @@ def _green_interpolation(mosaic: np.ndarray, mask: np.ndarray, pattern: str, eps
 
 @lru_cache(maxsize=1)
 def _bicubic_residual_kernel() -> np.ndarray:
-    s_32 = _s(3 / 2)
-    s_12 = _s(1 / 2)
-    s_0 = _s(0)
-    s_1 = _s(1)
+    s_32 = _cubic_kernel(3 / 2)
+    s_12 = _cubic_kernel(1 / 2)
+    s_0 = _cubic_kernel(0)
+    s_1 = _cubic_kernel(1)
     a = s_32**2
     b = s_32 * s_12
     c = s_12**2
